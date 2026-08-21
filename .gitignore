@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+client/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment Variables & Secrets (CRITICAL: NEVER COMMIT REAL SECRETS)
+.env
+.env.local
+.env.*.local
+
+# Operating System & IDE Files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build Outputs (Can be built in Docker / npm run client:build)
+dist/
+build/
+
+# Local DB runtime data (Exclude runtime db writes, db.js will auto-initialize if missing)
+# data/db.json is tracked with default admin or excluded

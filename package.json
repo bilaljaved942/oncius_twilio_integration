@@ -1,0 +1,22 @@
+{
+  "name": "twilio-integrated-monochrome",
+  "version": "1.0.0",
+  "description": "Black and White Direct 1-on-1 Web-to-Phone Calling Application powered by Twilio",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "client:install": "cd client && npm install",
+    "client:build": "cd client && npm run build",
+    "client:dev": "cd client && npm run dev"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.3.1",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "twilio": "^5.12.0"
+  }
+}

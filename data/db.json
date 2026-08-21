@@ -1,0 +1,22 @@
+{
+  "users": [
+    {
+      "id": "user_admin_root",
+      "name": "System Admin",
+      "email": "admin@example.com",
+      "phone": "",
+      "password": "$2b$10$BPuDF//RKIFGLQKVZjYOZO9H6vEJcm5Rw.cPeiCmdHFBTm.4luQSO",
+      "role": "admin",
+      "createdAt": "2026-08-16T16:50:41.000Z"
+    }
+  ],
+  "callLogs": [],
+  "twilioConfig": {
+    "accountSid": "",
+    "authToken": "",
+    "phoneNumber": "",
+    "twimlAppSid": "",
+    "apiKey": "",
+    "apiSecret": ""
+  }
+}
