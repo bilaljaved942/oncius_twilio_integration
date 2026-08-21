@@ -6,7 +6,11 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DB_FILE = path.join(__dirname, 'db.json');
+// In Vercel serverless environments, the root filesystem is read-only, so use /tmp
+const SEED_FILE = path.join(__dirname, 'db.json');
+const DB_FILE = process.env.VERCEL
+  ? path.join('/tmp', 'db.json')
+  : path.join(__dirname, 'db.json');
 
 function hashPassword(plainText) {
   return bcrypt.hashSync(plainText, 10);
@@ -35,22 +39,43 @@ const initialData = {
   }
 };
 
+// In-memory cache fallback for serverless lambda warm instances
+let memoryDB = null;
+
 export function readDB() {
   try {
+    if (process.env.VERCEL && memoryDB) {
+      return memoryDB;
+    }
+
     if (!fs.existsSync(DB_FILE)) {
+      if (fs.existsSync(SEED_FILE)) {
+        try {
+          const seedContent = fs.readFileSync(SEED_FILE, 'utf-8');
+          const parsed = JSON.parse(seedContent);
+          writeDB(parsed);
+          memoryDB = parsed;
+          return parsed;
+        } catch (e) {}
+      }
       writeDB(initialData);
+      memoryDB = initialData;
       return initialData;
     }
     const raw = fs.readFileSync(DB_FILE, 'utf-8');
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    memoryDB = parsed;
+    return parsed;
   } catch (err) {
     console.error('Error reading db.json:', err);
-    return initialData;
+    if (!memoryDB) memoryDB = initialData;
+    return memoryDB;
   }
 }
 
 export function writeDB(data) {
   try {
+    memoryDB = data;
     const dir = path.dirname(DB_FILE);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -58,6 +83,7 @@ export function writeDB(data) {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
   } catch (err) {
     console.error('Error writing db.json:', err);
+    memoryDB = data;
   }
 }
 
@@ -68,13 +94,14 @@ export function getUsers() {
 
 export function saveUser(user) {
   const db = readDB();
+  if (!db.users) db.users = [];
   db.users.push(user);
   writeDB(db);
 }
 
 export function deleteUserById(userId) {
   const db = readDB();
-  db.users = db.users.filter((u) => u.id !== userId);
+  db.users = (db.users || []).filter((u) => u.id !== userId);
   writeDB(db);
 }
 
@@ -92,7 +119,7 @@ export function saveCallLog(log) {
 
 export function updateCallLog(logId, updates) {
   const db = readDB();
-  const log = db.callLogs.find((l) => l.id === logId);
+  const log = (db.callLogs || []).find((l) => l.id === logId);
   if (log) {
     Object.assign(log, updates);
     writeDB(db);
@@ -102,7 +129,7 @@ export function updateCallLog(logId, updates) {
 
 export function deleteCallLogById(logId) {
   const db = readDB();
-  db.callLogs = db.callLogs.filter((l) => l.id !== logId);
+  db.callLogs = (db.callLogs || []).filter((l) => l.id !== logId);
   writeDB(db);
 }
 
