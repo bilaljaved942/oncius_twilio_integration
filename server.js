@@ -66,21 +66,21 @@ app.get('{*path}', (req, res) => {
   });
 });
 
-// ── Auto-launch ngrok tunnel ───────────────────────────────────────────────
+// ── Auto-launch ngrok tunnel (Local development only) ──────────────────────
 function startNgrok() {
   return new Promise((resolve) => {
-    // Skip if BASE_URL already set in env (e.g., deployed server)
-    if (process.env.BASE_URL && !process.env.BASE_URL.includes('localhost')) {
-      console.log(`🌐 Using BASE_URL from .env: ${process.env.BASE_URL}`);
-      return resolve(process.env.BASE_URL);
+    // Skip if running in cloud or production
+    if (process.env.VERCEL || process.env.NODE_ENV === 'production' || process.env.BASE_URL) {
+      if (process.env.BASE_URL) {
+        console.log(`🌐 Using BASE_URL from env: ${process.env.BASE_URL}`);
+      }
+      return resolve(process.env.BASE_URL || null);
     }
 
     // Check if ngrok is installed
     try {
       execSync('which ngrok', { stdio: 'ignore' });
     } catch {
-      console.log('⚠️  ngrok not found. TwiML will use localhost (calls may not connect).');
-      console.log('   Install ngrok: brew install ngrok/ngrok/ngrok');
       return resolve(null);
     }
 
@@ -120,27 +120,29 @@ function startNgrok() {
 
       if (attempts >= 20) {
         clearInterval(pollInterval);
-        console.log('⚠️  Could not get ngrok URL after 10s. Calls may not connect properly.');
         resolve(null);
       }
     }, 500);
   });
 }
 
-// ── Start Server + ngrok ───────────────────────────────────────────────────
-app.listen(PORT, async () => {
-  console.log(`=================================================`);
-  console.log(` MONOCHROME TWILIO CALLING SERVER RUNNING`);
-  console.log(` Local URL: http://localhost:${PORT}`);
-  console.log(`=================================================`);
+// ── Start Server ───────────────────────────────────────────────────────────
+if (!process.env.VERCEL) {
+  app.listen(PORT, async () => {
+    console.log(`=================================================`);
+    console.log(` MONOCHROME TWILIO CALLING SERVER RUNNING`);
+    console.log(` Local URL: http://localhost:${PORT}`);
+    console.log(`=================================================`);
 
-  const publicUrl = await startNgrok();
+    const publicUrl = await startNgrok();
 
-  if (publicUrl) {
-    console.log(`\n✅ ngrok tunnel active!`);
-    console.log(`🌐 Public URL: ${publicUrl}`);
-    console.log(`📞 TwiML webhook: ${publicUrl}/api/twilio/voice`);
-    console.log(`\n   Twilio will now reach your server for live calls!`);
-    console.log(`=================================================\n`);
-  }
-});
+    if (publicUrl) {
+      console.log(`\n✅ ngrok tunnel active!`);
+      console.log(`🌐 Public URL: ${publicUrl}`);
+      console.log(`📞 TwiML webhook: ${publicUrl}/api/twilio/voice`);
+      console.log(`=================================================\n`);
+    }
+  });
+}
+
+export default app;
