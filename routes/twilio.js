@@ -128,7 +128,7 @@ router.all('/voice', (req, res) => {
 });
 
 // Record Initial Call Log
-router.post('/log-call', (req, res) => {
+router.post('/log-call', async (req, res) => {
   const { targetNumber, userEmail, userName } = req.body;
   const config = getTwilioConfig();
 
@@ -144,22 +144,22 @@ router.post('/log-call', (req, res) => {
     mode: 'WebRTC Direct Audio'
   };
 
-  saveCallLog(newLog);
+  await saveCallLog(newLog);
   res.json({ success: true, log: newLog });
 });
 
 // Update Call End Duration
-router.post('/call-end', (req, res) => {
+router.post('/call-end', async (req, res) => {
   const { logId, duration } = req.body;
-  const updatedLog = updateCallLog(logId, { status: 'Completed', duration: duration || '00:00' });
+  const updatedLog = await updateCallLog(logId, { status: 'Completed', duration: duration || '00:00' });
   res.json({ success: true, log: updatedLog });
 });
 
 // Get Call History
-router.get('/history', (req, res) => {
+router.get('/history', async (req, res) => {
   const email = req.query.email;
   const role = req.query.role;
-  const allLogs = getCallLogs();
+  const allLogs = await getCallLogs();
 
   if (role === 'admin' || !email) {
     res.json(allLogs);
@@ -170,9 +170,9 @@ router.get('/history', (req, res) => {
 });
 
 // Admin Route: Delete Call Log Entry
-router.delete('/history/:id', requireAdmin, (req, res) => {
+router.delete('/history/:id', requireAdmin, async (req, res) => {
   const logId = req.params.id;
-  deleteCallLogById(logId);
+  await deleteCallLogById(logId);
   res.json({ message: 'Call log deleted successfully' });
 });
 

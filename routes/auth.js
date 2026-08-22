@@ -15,7 +15,7 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Name, Email, and Password are required.' });
     }
 
-    const users = getUsers();
+    const users = await getUsers();
     const existingUser = users.find((u) => u.email.toLowerCase() === email.toLowerCase().trim());
     if (existingUser) {
       return res.status(400).json({ error: 'An account with this email already exists.' });
@@ -32,7 +32,7 @@ router.post('/register', async (req, res) => {
       createdAt: new Date().toISOString()
     };
 
-    saveUser(newUser);
+    await saveUser(newUser);
 
     const token = jwt.sign(
       { id: newUser.id, email: newUser.email, name: newUser.name, phone: newUser.phone, role: newUser.role },
@@ -60,7 +60,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
 
-    const users = getUsers();
+    const users = await getUsers();
     const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase().trim());
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password.' });
@@ -114,16 +114,16 @@ export function requireAdmin(req, res, next) {
 }
 
 // Get Logged-in User Profile
-router.get('/me', authenticateToken, (req, res) => {
-  const users = getUsers();
+router.get('/me', authenticateToken, async (req, res) => {
+  const users = await getUsers();
   const user = users.find((u) => u.id === req.user.id);
   if (!user) return res.status(404).json({ error: 'User not found.' });
   res.json({ id: user.id, name: user.name, email: user.email, phone: user.phone || '', role: user.role });
 });
 
 // Admin Route: List All Users
-router.get('/users', requireAdmin, (req, res) => {
-  const users = getUsers();
+router.get('/users', requireAdmin, async (req, res) => {
+  const users = await getUsers();
   const userList = users.map((u) => ({
     id: u.id,
     name: u.name,
@@ -136,9 +136,9 @@ router.get('/users', requireAdmin, (req, res) => {
 });
 
 // Admin Route: Delete User Account
-router.delete('/users/:id', requireAdmin, (req, res) => {
+router.delete('/users/:id', requireAdmin, async (req, res) => {
   const targetId = req.params.id;
-  const users = getUsers();
+  const users = await getUsers();
   const targetUser = users.find((u) => u.id === targetId);
 
   if (!targetUser) {
@@ -149,7 +149,7 @@ router.delete('/users/:id', requireAdmin, (req, res) => {
     return res.status(400).json({ error: 'Cannot delete primary root admin account.' });
   }
 
-  deleteUserById(targetId);
+  await deleteUserById(targetId);
   res.json({ message: 'User deleted successfully', user: targetUser });
 });
 

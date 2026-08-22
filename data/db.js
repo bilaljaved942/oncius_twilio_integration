@@ -2,11 +2,29 @@ import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import { createClient } from '@supabase/supabase-js';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// In Vercel serverless environments, the root filesystem is read-only, so use /tmp
+// Supabase Cloud Client
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+export const supabase = (supabaseUrl && supabaseKey)
+  ? createClient(supabaseUrl, supabaseKey)
+  : null;
+
+if (supabase) {
+  console.log('⚡ Connected to Supabase Cloud Database!');
+} else {
+  console.log('📁 Using local JSON file store (db.json)');
+}
+
+// Local File Store Fallback
 const SEED_FILE = path.join(__dirname, 'db.json');
 const DB_FILE = process.env.VERCEL
   ? path.join('/tmp', 'db.json')
@@ -39,14 +57,11 @@ const initialData = {
   }
 };
 
-// In-memory cache fallback for serverless lambda warm instances
 let memoryDB = null;
 
 export function readDB() {
   try {
-    if (process.env.VERCEL && memoryDB) {
-      return memoryDB;
-    }
+    if (process.env.VERCEL && memoryDB) return memoryDB;
 
     if (!fs.existsSync(DB_FILE)) {
       if (fs.existsSync(SEED_FILE)) {
@@ -67,7 +82,6 @@ export function readDB() {
     memoryDB = parsed;
     return parsed;
   } catch (err) {
-    console.error('Error reading db.json:', err);
     if (!memoryDB) memoryDB = initialData;
     return memoryDB;
   }
@@ -77,47 +91,144 @@ export function writeDB(data) {
   try {
     memoryDB = data;
     const dir = path.dirname(DB_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
   } catch (err) {
-    console.error('Error writing db.json:', err);
     memoryDB = data;
   }
 }
 
-export function getUsers() {
+// ── USERS ──────────────────────────────────────────────────────────────────
+
+export async function getUsers() {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from('users').select('*').order('created_at', { ascending: false });
+      if (!error && data) {
+        return data.map((u) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          phone: u.phone || '',
+          password: u.password,
+          role: u.role || 'user',
+          createdAt: u.created_at
+        }));
+      }
+    } catch (e) {
+      console.error('Supabase getUsers error:', e);
+    }
+  }
   const db = readDB();
   return db.users || [];
 }
 
-export function saveUser(user) {
+export async function saveUser(user) {
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('users').upsert({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || '',
+        password: user.password,
+        role: user.role || 'user',
+        created_at: user.createdAt || new Date().toISOString()
+      });
+      if (error) console.error('Supabase saveUser error:', error);
+      return;
+    } catch (e) {
+      console.error('Supabase saveUser error:', e);
+    }
+  }
   const db = readDB();
   if (!db.users) db.users = [];
   db.users.push(user);
   writeDB(db);
 }
 
-export function deleteUserById(userId) {
+export async function deleteUserById(userId) {
+  if (supabase) {
+    try {
+      await supabase.from('users').delete().eq('id', userId);
+      return;
+    } catch (e) {
+      console.error('Supabase deleteUser error:', e);
+    }
+  }
   const db = readDB();
   db.users = (db.users || []).filter((u) => u.id !== userId);
   writeDB(db);
 }
 
-export function getCallLogs() {
+// ── CALL LOGS ──────────────────────────────────────────────────────────────
+
+export async function getCallLogs() {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from('call_logs').select('*').order('timestamp', { ascending: false });
+      if (!error && data) {
+        return data.map((l) => ({
+          id: l.id,
+          userEmail: l.user_email,
+          userName: l.user_name,
+          targetNumber: l.target_number,
+          userNumber: l.user_number,
+          status: l.status,
+          duration: l.duration,
+          timestamp: l.timestamp,
+          mode: l.mode,
+          callSid: l.call_sid
+        }));
+      }
+    } catch (e) {
+      console.error('Supabase getCallLogs error:', e);
+    }
+  }
   const db = readDB();
   return db.callLogs || [];
 }
 
-export function saveCallLog(log) {
+export async function saveCallLog(log) {
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('call_logs').insert({
+        id: log.id,
+        user_email: log.userEmail,
+        user_name: log.userName,
+        target_number: log.targetNumber,
+        user_number: log.userNumber,
+        status: log.status,
+        duration: log.duration,
+        timestamp: log.timestamp || new Date().toISOString(),
+        mode: log.mode || 'WebRTC Direct Audio',
+        call_sid: log.callSid || ''
+      });
+      if (error) console.error('Supabase saveCallLog error:', error);
+      return;
+    } catch (e) {
+      console.error('Supabase saveCallLog error:', e);
+    }
+  }
   const db = readDB();
   if (!db.callLogs) db.callLogs = [];
   db.callLogs.unshift(log);
   writeDB(db);
 }
 
-export function updateCallLog(logId, updates) {
+export async function updateCallLog(logId, updates) {
+  if (supabase) {
+    try {
+      const updateData = {};
+      if (updates.status) updateData.status = updates.status;
+      if (updates.duration) updateData.duration = updates.duration;
+      if (updates.callSid) updateData.call_sid = updates.callSid;
+
+      await supabase.from('call_logs').update(updateData).eq('id', logId);
+    } catch (e) {
+      console.error('Supabase updateCallLog error:', e);
+    }
+  }
   const db = readDB();
   const log = (db.callLogs || []).find((l) => l.id === logId);
   if (log) {
@@ -127,13 +238,22 @@ export function updateCallLog(logId, updates) {
   return log;
 }
 
-export function deleteCallLogById(logId) {
+export async function deleteCallLogById(logId) {
+  if (supabase) {
+    try {
+      await supabase.from('call_logs').delete().eq('id', logId);
+      return;
+    } catch (e) {
+      console.error('Supabase deleteCallLog error:', e);
+    }
+  }
   const db = readDB();
   db.callLogs = (db.callLogs || []).filter((l) => l.id !== logId);
   writeDB(db);
 }
 
-// Fallback to process.env if db.json field is empty
+// ── TWILIO CONFIG ──────────────────────────────────────────────────────────
+
 export function getTwilioConfig() {
   const db = readDB();
   const fileConfig = db.twilioConfig || {};
