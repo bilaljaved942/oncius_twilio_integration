@@ -106,8 +106,15 @@ router.all('/voice', (req, res) => {
   const VoiceResponse = twilio.twiml.VoiceResponse;
   const twiml = new VoiceResponse();
 
-  const to = req.body.To || req.query.To;
+  let to = req.body.To || req.query.To;
   const callerId = config.phoneNumber || '+19856022321';
+
+  if (to) {
+    to = to.replace(/[\s\-\(\)]/g, '');
+    if (to.startsWith('+610')) to = '+61' + to.slice(4);
+    if (to.startsWith('+440')) to = '+44' + to.slice(4);
+    if (to.startsWith('+920')) to = '+92' + to.slice(4);
+  }
 
   console.log(`🎙️ Twilio WebRTC Voice Bridge Request: From=${callerId} To=${to}`);
 

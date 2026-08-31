@@ -126,12 +126,17 @@ export default function Dialer({ onInitiateCall, user }) {
   const handleCallClick = () => {
     if (!dialedNumber.trim()) return;
 
-    let fullNumber = dialedNumber.trim();
-    if (!fullNumber.startsWith('+')) {
-      fullNumber = selectedCountry + ' ' + fullNumber;
+    let cleaned = dialedNumber.trim().replace(/[\s\-\(\)]/g, '');
+
+    // If user didn't type a '+', prepend selected country code and strip redundant local leading '0'
+    if (!cleaned.startsWith('+')) {
+      if (cleaned.startsWith('0') && cleaned.length > 1) {
+        cleaned = cleaned.substring(1);
+      }
+      cleaned = selectedCountry + ' ' + cleaned;
     }
 
-    onInitiateCall(fullNumber);
+    onInitiateCall(cleaned);
   };
 
   return (
